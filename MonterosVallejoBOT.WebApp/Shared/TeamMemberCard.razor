@@ -1,0 +1,22 @@
+﻿<div class="team-member-card">
+    <img src="@PhotoUrl" alt="Foto de @Name" class="team-member-photo" />
+    <div class="member-info">
+        <h4>@Name</h4>
+        <p><strong>Correo:</strong> <a href="mailto:@Email">@Email</a></p>
+        <p><strong>Intereses:</strong> @Interests</p>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string Name { get; set; } = "Nombre Apellido";
+
+    [Parameter]
+    public string Email { get; set; } = "correo@ejemplo.com";
+
+    [Parameter]
+    public string Interests { get; set; } = "Intereses aquí";
+
+    [Parameter]
+    public string PhotoUrl { get; set; } = "/images/default-avatar.png"; 
+}

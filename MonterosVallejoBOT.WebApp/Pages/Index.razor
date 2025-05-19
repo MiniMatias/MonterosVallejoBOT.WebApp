@@ -1,5 +1,5 @@
 ﻿@page "/"
-@inject IChatBotService ChatService
+@inject IChatBotService ChatService  
 @inject IConfiguration Configuration
 @inject ILogger<Index> Logger
 
@@ -18,8 +18,9 @@
     <div class="controls mb-3">
         <label for="provider-select" class="form-label">Proveedor de IA:</label>
         <select id="provider-select" class="form-select w-auto d-inline-block" @bind="SelectedProvider">
-            <option value="@AIProvider.Gemini">Gemini</option>
-            <option value="@AIProvider.OtherFreeAI">@OtherAIProviderName</option> </select>
+            <option value="@AIProvider.Gemini">Gemini</option> @* Esto ahora debería resolverse *@
+            <option value="@AIProvider.OtherFreeAI">@OtherAIProviderName</option>  @* Esto ahora debería resolverse *@
+        </select>
     </div>
 
     <div class="input-area mb-3">
@@ -54,6 +55,7 @@
 
     @if (CurrentResponse != null && !string.IsNullOrWhiteSpace(CurrentResponse.Content))
     {
+        @* AIResponse también debería resolverse aquí para CurrentResponse *@
         <div class="response-display alert @(CurrentResponse.Content.StartsWith("Error", StringComparison.OrdinalIgnoreCase) || CurrentResponse.Content.StartsWith("Se produjo un error", StringComparison.OrdinalIgnoreCase) || CurrentResponse.Content.Contains("OpenAI Error", StringComparison.OrdinalIgnoreCase) ? "alert-warning" : "alert-secondary")">
             <h4>Respuesta de @(SelectedProvider == AIProvider.OtherFreeAI ? OtherAIProviderName : SelectedProvider.ToString()) <small class="text-muted">(@CurrentResponse.Timestamp.ToLocalTime().ToString("g"))</small>:</h4>
             <pre class="response-content">@CurrentResponse.Content</pre>
@@ -67,9 +69,10 @@
 
 @code {
     private string ChatbotTitle => Configuration["ChatbotSettings:Title"] ?? "MonterosVallejoBOT";
-    private string OtherAIProviderName => "OpenAI"; 
+    private string OtherAIProviderName => "OpenAI";
 
     private string? UserPrompt;
+    // AIProvider y AIResponse deben resolverse gracias a _Imports.razor
     private AIProvider SelectedProvider = AIProvider.Gemini;
     private AIResponse? CurrentResponse;
     private bool IsLoading = false;
@@ -97,8 +100,8 @@
             if (CurrentResponse != null && !string.IsNullOrWhiteSpace(CurrentResponse.Content) &&
                 !CurrentResponse.Content.StartsWith("Error", StringComparison.OrdinalIgnoreCase) &&
                 !CurrentResponse.Content.StartsWith("Se produjo un error", StringComparison.OrdinalIgnoreCase) &&
-                !CurrentResponse.Content.Contains("OpenAI Error", StringComparison.OrdinalIgnoreCase) && 
-                !CurrentResponse.Content.Contains("OpenAI API", StringComparison.OrdinalIgnoreCase) 
+                !CurrentResponse.Content.Contains("OpenAI Error", StringComparison.OrdinalIgnoreCase) &&
+                !CurrentResponse.Content.Contains("OpenAI API", StringComparison.OrdinalIgnoreCase)
                 )
             {
                 string providerNameToStore = SelectedProvider == AIProvider.OtherFreeAI ? OtherAIProviderName : SelectedProvider.ToString();

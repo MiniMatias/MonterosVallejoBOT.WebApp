@@ -3,7 +3,7 @@
 public enum AIProvider
 {
     Gemini,
-    OpenAI 
+    OtherFreeAI
 }
 
 public class AIResponse

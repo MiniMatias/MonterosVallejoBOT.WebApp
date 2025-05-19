@@ -1,9 +1,140 @@
 ﻿@page "/"
+@inject IChatBotService ChatService
+@inject IConfiguration Configuration
+@inject ILogger<Index> Logger
 
-<PageTitle>Index</PageTitle>
+<PageTitle>@ChatbotTitle</PageTitle>
 
-<h1>Hello, world!</h1>
+<header class="app-header">
+    <h1>@ChatbotTitle</h1>
+</header>
 
-Welcome to your new app.
+<div class="team-members-container">
+    <TeamMemberCard Name="[Nombre Miembro 1]" Email="[correo1@example.com]" Interests="[Intereses del Miembro 1]" PhotoUrl="/images/miembro1.jpg" />
+    <TeamMemberCard Name="[Nombre Miembro 2]" Email="[correo2@example.com]" Interests="[Intereses del Miembro 2]" PhotoUrl="/images/miembro2.jpg" />
+</div>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+<div class="chat-interface">
+    <div class="controls mb-3">
+        <label for="provider-select" class="form-label">Proveedor de IA:</label>
+        <select id="provider-select" class="form-select w-auto d-inline-block" @bind="SelectedProvider">
+            <option value="@AIProvider.Gemini">Gemini</option>
+            <option value="@AIProvider.OtherFreeAI">@OtherAIProviderName</option> </select>
+    </div>
+
+    <div class="input-area mb-3">
+        <label for="user-prompt" class="form-label visually-hidden">Pregunta:</label>
+        <textarea id="user-prompt" class="form-control" @bind="UserPrompt" placeholder="Escribe tu pregunta aquí..." rows="4" @onkeydown="HandleKeyDown"></textarea>
+        <button class="btn btn-primary ms-2 align-self-end" @onclick="HandleSubmitAsync" disabled="@IsLoading">
+            @if (IsLoading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                <span class="visually-hidden">Enviando...</span>
+            }
+            else
+            {
+                <span>Enviar</span>
+            }
+        </button>
+    </div>
+
+    @if (IsLoading && CurrentResponse == null)
+    {
+        <div class="loading-indicator alert alert-info">
+            <p>Obteniendo respuesta...</p>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <div class="error-message alert alert-danger">
+            <p>@ErrorMessage</p>
+        </div>
+    }
+
+    @if (CurrentResponse != null && !string.IsNullOrWhiteSpace(CurrentResponse.Content))
+    {
+        <div class="response-display alert @(CurrentResponse.Content.StartsWith("Error", StringComparison.OrdinalIgnoreCase) || CurrentResponse.Content.StartsWith("Se produjo un error", StringComparison.OrdinalIgnoreCase) || CurrentResponse.Content.Contains("OpenAI Error", StringComparison.OrdinalIgnoreCase) ? "alert-warning" : "alert-secondary")">
+            <h4>Respuesta de @(SelectedProvider == AIProvider.OtherFreeAI ? OtherAIProviderName : SelectedProvider.ToString()) <small class="text-muted">(@CurrentResponse.Timestamp.ToLocalTime().ToString("g"))</small>:</h4>
+            <pre class="response-content">@CurrentResponse.Content</pre>
+        </div>
+    }
+</div>
+
+<footer class="app-footer">
+    <p>&copy; @DateTime.Now.Year @ChatbotTitle - Desarrollado por el Equipo Monteros Vallejo.</p>
+</footer>
+
+@code {
+    private string ChatbotTitle => Configuration["ChatbotSettings:Title"] ?? "MonterosVallejoBOT";
+    private string OtherAIProviderName => "OpenAI"; 
+
+    private string? UserPrompt;
+    private AIProvider SelectedProvider = AIProvider.Gemini;
+    private AIResponse? CurrentResponse;
+    private bool IsLoading = false;
+    private string? ErrorMessage;
+
+    private async Task HandleSubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(UserPrompt))
+        {
+            ErrorMessage = "Por favor, escribe una pregunta.";
+            CurrentResponse = null;
+            return;
+        }
+
+        IsLoading = true;
+        ErrorMessage = null;
+        CurrentResponse = null;
+
+        Logger.LogInformation("Enviando pregunta al proveedor {Provider}: {PromptShort}", SelectedProvider, UserPrompt.Substring(0, Math.Min(UserPrompt.Length, 50)) + "...");
+
+        try
+        {
+            CurrentResponse = await ChatService.GetResponseAsync(UserPrompt, SelectedProvider);
+
+            if (CurrentResponse != null && !string.IsNullOrWhiteSpace(CurrentResponse.Content) &&
+                !CurrentResponse.Content.StartsWith("Error", StringComparison.OrdinalIgnoreCase) &&
+                !CurrentResponse.Content.StartsWith("Se produjo un error", StringComparison.OrdinalIgnoreCase) &&
+                !CurrentResponse.Content.Contains("OpenAI Error", StringComparison.OrdinalIgnoreCase) && 
+                !CurrentResponse.Content.Contains("OpenAI API", StringComparison.OrdinalIgnoreCase) 
+                )
+            {
+                string providerNameToStore = SelectedProvider == AIProvider.OtherFreeAI ? OtherAIProviderName : SelectedProvider.ToString();
+                await ChatService.StoreResponseAsync(CurrentResponse.Content, SelectedProvider, "WebAppUser");
+                Logger.LogInformation("Respuesta recibida y almacenada del proveedor {ProviderName}", providerNameToStore);
+            }
+            else if (CurrentResponse != null && (!string.IsNullOrWhiteSpace(CurrentResponse.Content)))
+            {
+                 ErrorMessage = CurrentResponse.Content;
+                 Logger.LogWarning("Error recibido del servicio de IA (mostrado al usuario): {Error}", ErrorMessage);
+                 CurrentResponse = null;
+            }
+            else
+            {
+                ErrorMessage = "No se recibió una respuesta válida del proveedor.";
+                Logger.LogWarning(ErrorMessage);
+                CurrentResponse = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error en HandleSubmitAsync al interactuar con ChatService.");
+            ErrorMessage = "Ocurrió un error inesperado al procesar tu solicitud. Revisa los logs para más detalles.";
+            CurrentResponse = null;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey && !e.CtrlKey && !e.AltKey)
+        {
+            await HandleSubmitAsync();
+        }
+    }
+}

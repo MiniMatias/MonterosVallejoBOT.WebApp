@@ -106,5 +106,3 @@ public class GeminiSafetyRating
     [JsonPropertyName("probability")]
     public string? Probability { get; set; }
 }
-
-
